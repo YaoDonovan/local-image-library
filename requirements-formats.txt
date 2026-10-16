@@ -1,0 +1,3 @@
+# Optional decoders for HEIC/HEIF and camera RAW previews.
+pillow-heif>=0.18
+rawpy>=0.24

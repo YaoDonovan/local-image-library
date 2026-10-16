@@ -1,0 +1,5 @@
+# Optional local image/text semantic search dependencies.
+# Install a PyTorch build that matches the machine's CUDA driver separately.
+transformers>=4.49.0
+safetensors>=0.4.0
+numpy>=1.24
