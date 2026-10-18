@@ -571,6 +571,15 @@ def cache_limit_bytes() -> int:
     return int(float(row[0]) * 1024**3) if row else 100 * 1024**3
 
 
+def thumbnail_cache_size_bytes() -> int:
+    if not THUMB_DIR.is_dir(): return 0
+    total = 0
+    for item in THUMB_DIR.glob("*.jpg"):
+        try: total += item.stat().st_size
+        except OSError: continue
+    return total
+
+
 def trim_thumbnail_cache() -> None:
     if not THUMB_DIR.is_dir(): return
     files = sorted((p for p in THUMB_DIR.glob("*.jpg") if p.is_file()), key=lambda p: p.stat().st_mtime)
@@ -723,9 +732,11 @@ class Handler(BaseHTTPRequestHandler):
             content = file.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/javascript; charset=utf-8" if path.endswith("js") else "text/css; charset=utf-8"); self.send_header("Content-Length", str(len(content))); self.end_headers(); self.wfile.write(content); return
         try:
             if path == "/api/health":
-                with connect() as db: total = db.execute("SELECT count(*) FROM assets WHERE missing=0").fetchone()[0]
+                with connect() as db:
+                    total = db.execute("SELECT count(*) FROM assets WHERE missing=0").fetchone()[0]
+                    root_count = db.execute("SELECT count(*) FROM roots").fetchone()[0]
                 semantic = semantic_status()
-                self.send_json({"ok": True, "images": total, "data_dir": str(DATA_DIR), "pillow": Image is not None, "heif": HEIF_AVAILABLE, "raw": RAW_AVAILABLE, "scan_extensions": sorted(IMAGE_EXTS), "preview_extensions": sorted((PIL_IMAGE_EXTS | ({".heic", ".heif"} if HEIF_AVAILABLE else set()) | (RAW_EXTS if RAW_AVAILABLE else set())) & IMAGE_EXTS), "ocr": False, "semantic_model": semantic["ready"], "semantic_indexed": semantic["indexed"], "semantic_pending": semantic["pending"], "semantic_device": semantic["device"], "thumbnail_cache_limit_gb": round(cache_limit_bytes()/1024**3, 1)}); return
+                self.send_json({"ok": True, "images": total, "asset_count": total, "root_count": root_count, "cache_bytes": thumbnail_cache_size_bytes(), "data_dir": str(DATA_DIR), "pillow": Image is not None, "heif": HEIF_AVAILABLE, "raw": RAW_AVAILABLE, "scan_extensions": sorted(IMAGE_EXTS), "preview_extensions": sorted((PIL_IMAGE_EXTS | ({".heic", ".heif"} if HEIF_AVAILABLE else set()) | (RAW_EXTS if RAW_AVAILABLE else set())) & IMAGE_EXTS), "ocr": False, "semantic_model": semantic["ready"], "semantic_indexed": semantic["indexed"], "semantic_pending": semantic["pending"], "semantic_device": semantic["device"], "thumbnail_cache_limit_gb": round(cache_limit_bytes()/1024**3, 1)}); return
             if path == "/api/semantic/status":
                 self.send_json(semantic_status()); return
             if path == "/api/roots":
